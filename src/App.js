@@ -8,32 +8,11 @@ import { PlayArrow, SkipPrevious, SkipNext, Stop, Folder, MusicNote } from 'mate
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
 
-import { withStyles } from 'material-ui/styles';
-const styles = theme => ({
-  button: {
-    margin: theme.spacing.unit * 3,
-  },
-  container: {
-    display: 'flex',
-    flexWrap: 'wrap',
-  },
-  textField: {
-    marginLeft: theme.spacing.unit,
-    marginRight: theme.spacing.unit,
-    width: 200,
-  },
-  root: {
-    background: 'blueGrey',
-  },
-});
-
-
-
 
 var playerDir = "/lua";
 //var flashAirURLBase = "http://flashair";
-var flashAirURLBase = "";
 //var appURLBase = flashAirURLBase + playerDir;
+var flashAirURLBase = "";
 var appURLBase = playerDir;
 var testMode = true;
 
@@ -230,6 +209,7 @@ class FileList extends React.Component
     }
 };
 
+
 class EditPanel extends React.Component
 {
     handleChangeText(e)
@@ -259,19 +239,11 @@ class EditPanel extends React.Component
         {
             panel = (
                 <Grid item xs={12}>
-                <Paper>
-                  <Grid container justify="center" spacing={24}>
-                  <Grid item xs={12} >
-                    <TextField label="MML Editor"
-                     multiline fullWidth
-                     autoComplete="off" noValidate spellCheck="false"
-                     value={this.props.text}
-                     onChange={this.handleChangeText.bind(this)} />
-                         
-                    <Grid container justify="flex-start">
-                        <Grid item xs={10}>
-			            <TextField label="Filename" onChange={this.handleChangeFile.bind(this)} value={this.props.file} />
-                    </Grid>
+                  <Paper>
+                    <Grid container justify="center" spacing={24}>
+                      <Grid item xs={10}>
+			              <TextField label="Filename" onChange={this.handleChangeFile.bind(this)} value={this.props.file} />
+                      </Grid>
                       <Grid item xs={2}>
                         <Grid container justify="flex-end">
                           <Grid item>
@@ -280,9 +252,16 @@ class EditPanel extends React.Component
                           </Grid>
                         </Grid>
                       </Grid>
+                      <Grid item xs={12} >
+                        <TextField label="MML Editor"
+                            multiline fullWidth
+                            autoComplete="nope" noValidate spellCheck="false"
+                            value={this.props.text}
+                            onChange={this.handleChangeText.bind(this)} />
+                      </Grid>
                     </Grid>
-                  </Grid>
-                </Grid></Paper></Grid>);
+                  </Paper>
+                </Grid>);
         }
         
         return (<Grid container justify="center">
@@ -309,16 +288,16 @@ class PlayerControl extends React.Component
     render()
     {
         return (<Grid container justify="center"  spacing={40} >
-                  <Grid item xs={1}>
+                  <Grid item>
                       <Button fab color="default" onClick={this.props.onPrev} > <SkipPrevious /> </Button>
                   </Grid>
-                  <Grid item xs={1}>
+                  <Grid item>
                       <Button fab color="primary" onClick={this.props.onPlay} > <PlayArrow /> </Button>
                   </Grid>
-                  <Grid item xs={1}>
+                  <Grid item>
                       <Button fab color="default" onClick={this.props.onStop} > <Stop /> </Button>
                   </Grid>
-                  <Grid item xs={1}>
+                  <Grid item>
                       <Button fab color="default" onClick={this.props.onNext} > <SkipNext /> </Button>
                   </Grid>
                   <Grid item xs={12}>
@@ -464,8 +443,7 @@ class App extends React.Component
                         "Content-Type": "text/plain"
                     }
                 });
-                return response === 201;
-//                console.log(response);
+                return response.status === 200;
             }
             return true;
         }
@@ -614,7 +592,8 @@ class App extends React.Component
         if (this.state.editMode && this.state.text !== "")
         {
             (async ()=>{
-                if (await this.saveText(playerDir, "_tmp.mus"))
+                let r = await this.saveText(playerDir, "_tmp.mus");
+                if (r)
                     this.playFile(playerDir, "_tmp.mus");
             })();
         }
@@ -649,7 +628,7 @@ class App extends React.Component
 
     render() {
         return (
-        <div className={this.props.classes.root} >
+        <div>
 		  <AppBar position="static" color="default">
 		  <Toolbar>
           <Typography type="title" color="inherit">
@@ -686,70 +665,5 @@ class App extends React.Component
     };
 };
 
-
-
-
-/*
-class App extends React.Component {
-    render()
-    {
-        const { classes } = this.props;
-        return (<div>
-		  <AppBar position="static" color="default">
-		  <Toolbar>
-          <Typography type="title" color="inherit">
-		  Title
-	  	  </Typography>
-          </Toolbar>
-		  </AppBar>
-		  <Button> <Typography type="display1" > 日本語 Hello World? </Typography> </Button>
-                <div>
-                <Button fab color="default" className={classes.buttons} > <SkipPrevious /> </Button>
-                <Button fab color="primary" className={classes.buttons} > <PlayArrow /> </Button>
-                <Button fab color="default" className={classes.buttons} > <Stop /> </Button>
-                <Button fab color="default" className={classes.buttons} > <SkipNext /> </Button>
-                <Button fab color="default" className={classes.buttons} > hoge </Button>
-                </div>
-		  <h1> hoge </h1>
-		  <Typography type="display4"> Large </Typography>
-                <SvgIcon> <path d="M8 5v14l11-7z" />
-                </SvgIcon>
-                <AccessAlarm style={{
-                  width: 36,
-                  height: 36,
-                }} />
-                    <FormControlLabel control={
-                        <Switch checked={true} />}
-                        label="Switch" />
-
-                               <div>
-      <Button raised className={this.props.classes.button}>
-        Default
-      </Button>
-      <Button raised color="primary" className={this.props.classes.button}>
-        Primary
-      </Button>
-      <Button raised color="accent" className={this.props.classes.button}>
-        Accent
-      </Button>
-      <Button raised color="contrast" className={this.props.classes.button}>
-        Contrast
-      </Button>
-          </div>
-
- <TextField
-          label="MML"
-          multiline fullWidth autoComplete="off" noValidate spellcheck="false"
-          className={classes.textField}
-          margin="normal"
-        />
-              
-		</div>);
-    }
-}
-   */
-
-//render(<App />, document.querySelector('#app'));
-
-//export default App;
-export default withStyles(styles)(App);
+export default App;
+//export default withStyles(styles)(App);
