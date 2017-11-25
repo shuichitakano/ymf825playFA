@@ -1,5 +1,5 @@
 
---forTest = true
+forTest = true
 
 function main()
 
@@ -13,6 +13,7 @@ end
 
 require "tokenizer"
 require "musicdata"
+require "musicdata_parser"
 require "musicplayer"
 require "ymf825"
 
@@ -57,6 +58,9 @@ data:parseFile()
 
 MusicData.parseFile = nil
 collectgarbage()
+
+--data:save(input..".bin")
+--data:load(input..".bin")
 
 player = MusicPlayer.new(data, ymf825)
 

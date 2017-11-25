@@ -40,6 +40,14 @@ function YMF825.writeFIFO(data)
 	end
 end
 
+function YMF825.writeFIFO2(dataStr)
+	local l = dataStr:len()
+	for i=1,l do
+		spi_write(dataStr.byte(i))
+	end
+end
+
+
 function YMF825.endFIFO()
 	spi_setss(1)
 end
@@ -85,7 +93,7 @@ function YMF825:setDefaultState()
 		0x00,0x2F,0xF3,0x9B,0x00,0x20,0x41,
 		0x00,0xAF,0xA0,0x0E,0x01,0x10,0x40,
 	}
-	self:defineTones({defaultTone})
+	self:defineTones({string.char(unpack(defaultTone))})
 	
 	for i=1, 16 do
 		self:selectCh(i)
@@ -108,8 +116,8 @@ function YMF825:defineTones(tones)
 	
 	for i = 1,n do
 		local t = tones[i]
-		if #t == 30 then
-			YMF825.writeFIFO(t)
+		if t:len() == 30 then
+			YMF825.writeFIFO2(t)
 		else
 			error("invalid tone data")
 		end
