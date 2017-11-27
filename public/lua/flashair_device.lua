@@ -15,7 +15,6 @@ function device_setup()
 	fa.spi("init", 5)		--5 = 1MHz
 	fa.spi("mode", 3)
 	spi_setss(1)
-
 end
 
 function getCurrentTimeInMS()
@@ -28,6 +27,10 @@ end
 
 function writeSharedMemory(addr, data)
 	fa.sharedmemory("write", addr, string.len(data), data)
+end
+
+function setLED(st)
+	fa.pio(0x10, st and 0 or 0x10)
 end
 
 

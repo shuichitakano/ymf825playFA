@@ -1,3 +1,8 @@
+if forTest then
+	require("test_device")
+else
+	require("flashair_device")
+end
 
 function MusicData:parseFile()
 	local tokenizer = Tokenizer.new()
@@ -117,8 +122,15 @@ function MusicData:parseFile()
 	end
 
 	--------------------------------------
+	local led = true
+
 	local function cmdChannel(cmd)
-		currentCh = cmd - string.byte("A") + 1
+		local ch = cmd - string.byte("A") + 1
+		if currentCh~=ch then
+			led = not led
+			setLED(led)
+		end
+		currentCh = ch
 		currentChState = chStates[currentCh]
 		--print(string.format("ch = %d", currentCh))
 		return true

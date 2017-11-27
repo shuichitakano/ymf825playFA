@@ -28,3 +28,6 @@ end
 function writeSharedMemory(addr, data)
 end
 
+function setLED(st)
+	print("LED: "..(st and "on" or "off"))
+end

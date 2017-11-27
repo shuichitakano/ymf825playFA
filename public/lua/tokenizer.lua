@@ -4,7 +4,8 @@ function Tokenizer:nextLine(text)
 	if self.line == 0 then
         local a, b, c = text:byte(1, 3);
         if (a == 0xef and b == 0xbb and c == 0xbf) then
-            text = text:sub(4);
+			text = text:sub(4);
+			self.isUTF8 = true
         end
 	end
 	self.text = text
@@ -126,6 +127,7 @@ function Tokenizer.new()
 	obj.line = 0
 	obj.column = 1
 	obj.text = ""
+	obj.isUTF8 = false;
 	return setmetatable(obj, {__index = Tokenizer})
 end
 
