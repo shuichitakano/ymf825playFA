@@ -122,23 +122,23 @@ function MusicData:load(filename)
 
 	--Tone
 	local nTones = file:read(1):byte()
-	print(nTones.." tones\n")
+--	print(nTones.." tones\n")
 	for i = 1,nTones do
 		self.instData[i] = file:read(30)
 	end
 
 	--Data
 	local nCh = file:read(1):byte()
-	print(nCh.." channels\n")
+--	print(nCh.." channels\n")
 	for i = 1,nCh do
 		local l0, l1 = file:read(2):byte(1,2)
 		local l = l0 + l1*256
-		print("ch["..i.."]"..l.." bytes.")
+--		print("ch["..i.."]"..l.." bytes.")
 		self.cmds[i] = file:read(l)
 	end
 
 	io.close(file)
-	print("load success.")
+--	print("load success.")
 	
 	end
 

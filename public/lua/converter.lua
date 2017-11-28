@@ -5,10 +5,8 @@ function main()
 
     if forTest then
         package.path = "./?.lua"
-        path = ""
     else
         package.path = "/lua/?.lua"
-        path = "/music/"
     end
     
     --require "tokenizer"

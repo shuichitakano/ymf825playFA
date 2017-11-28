@@ -5,10 +5,8 @@ function main()
     
     if forTest then
         package.path = "./?.lua"
-        path = ""
     else
         package.path = "/lua/?.lua"
-        path = "/music/"
     end
     
     require "musicdata"
@@ -28,7 +26,7 @@ function main()
         volume = tonumber(arg[2])
     end
     
-    print(string.format("input = %s, volume = %d\n", input, volume))
+--    print(string.format("input = %s, volume = %d\n", input, volume))
     
     function updateSharedMemory()
         local r = string.format("_%02x:%04x", volume, chMask)
@@ -60,7 +58,7 @@ function main()
         elseif cmd=="S" then
             local v = tonumber(commandStr:sub(2, 3), 16)
             local m = tonumber(commandStr:sub(5, 8), 16)
-            print(string.format("v = %d, m = %d", v, m))
+            --print(string.format("v = %d, m = %d", v, m))
             player:setMasterVolume(v)
             --player:setChMask(m)
             writeSharedMemory(0, "_")
@@ -71,13 +69,17 @@ function main()
     
     ymf825:setDefaultState()
     
-    end
-    
-    local st, r = pcall(main)
-    if st then
-        print("success")
-    else
-        print("error!");
-        print(r);
-    end
-    
+end
+
+--[[
+local st, r = pcall(main)
+if st then
+    print("success")
+else
+    print("error!");
+    print(r);
+end
+
+]]
+main()
+

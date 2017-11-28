@@ -17,12 +17,55 @@ var appURLBase = playerDir;
 //var testMode = true;
 var testMode = false;
 
+function getFileNameBody(fname)
+{
+    return fname.match(/^(.+)(\..+)$/)[1];
+}
+
 async function sendCommand(cmd)
 {
     try {
         const url
             = flashAirURLBase + "/command.cgi?op=131&ADDR=0&LEN="
                 + cmd.length + "&DATA=" + cmd;
+        console.log("cmd url: " + url);
+
+        if (!testMode)
+        {
+            const response = await fetch(url, { method: "GET" });
+            return response.status === 200;
+        }
+        return true;
+    }
+    catch (e)
+    {
+        console.log("error: " + e);
+        return false;
+    }
+}
+
+async function setTime()
+{
+    try {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = d.getMonth()+1;
+        const date = d.getDate();
+        const hours = d.getHours();
+        const minutes = d.getMinutes();
+        const seconds = d.getSeconds();
+        console.log(year + "/" + month + "/" + date + " " + hours + ":" + minutes + ":" + seconds);
+
+        const t = (
+            (seconds / 2) |
+            (minutes << 5) |
+            (hours << 11) |
+            (date << 16) |
+            (month << 21) |
+            ((year - 1980) << 25));
+
+        const url
+            = flashAirURLBase + "/upload.cgi?FTIME=0x" + t.toString(16);
         console.log("cmd url: " + url);
 
         if (!testMode)
@@ -93,7 +136,7 @@ class SimpleJobQueue
 
             await j();
 
-            await asyncTest("wait..", 100)
+//            await asyncTest("wait..", 100)
         }
         this.active = false;
     }
@@ -144,7 +187,7 @@ class FileEntry extends React.Component
 
     handleClick(event)
     {
-        this.props.onSelect(this.props.name);
+        this.props.onSelect(this.props.name, this.props.hasbin);
     }
 
     render()
@@ -153,7 +196,7 @@ class FileEntry extends React.Component
         return (
             <div>
             <ListItem button onClick={this.handleClick.bind(this)}>
-                <ListItemText primary={this.state.title} secondary={this.props.name + " : " + this.props.size + "bytes" } />
+                <ListItemText primary={this.state.title} secondary={this.props.name + " : " + this.props.size + "bytes" + (this.props.hasbin ? " : (bin)" : "") } />
             </ListItem>
             <Divider inset />
             </div>);
@@ -188,8 +231,8 @@ class FileList extends React.Component
         const dir = this.props.dir;
         const nodes = this.props.files.map((d) => {
             return (<FileEntry
-                    dir={dir} name={d.name} size={d.size}
-                    key={dir+"/"+d.name}
+                dir={dir} name={d.name} size={d.size} hasbin={d.hasbin}
+                key={dir+"/"+d.name}
                     onSelect={this.props.onSelectFile} />);
         });
         const dirNodes = this.props.dirs.map((d) => {
@@ -345,6 +388,7 @@ class App extends React.Component
             lines.shift();		// WLANSD_FILELIST
             lines.pop();		// empty
             let fileList = [];
+            let binList = [];
             let dirList = [];
             for (let i = 0; i < lines.length; ++i) {
                 const elements = lines[i].split(",");
@@ -353,27 +397,43 @@ class App extends React.Component
                 const time = Number(elements[5]);
                 const attr = Number(elements[3]);
                 const isDir = attr & 16;
+                const tv = (date << 16) | time;
+                
                 if (isDir)
                 {
                     dirList.push({
                       name:	fname,
-                      date: date,
-                      time: time
+                      date: tv
                       });
                 }
                 else
                 {
                     const spf = fname.split(".");
                     const ext = spf[spf.length - 1].toLowerCase();
-                    if (ext !== "mus")
-                        continue;
-
-                    fileList.push({
-                      name: fname,
-                      size: Number(elements[2]),
-                      date: date,
-                      time: time
-                      });
+                    
+                    if (ext == "mus")
+                    {
+                        fileList.push({
+                            name: fname,
+                            size: Number(elements[2]),
+                            date: tv,
+                            hasbin: false,
+                            });
+                    }
+                    else if (ext == "mbin")
+                    {
+                        const body = getFileNameBody(fname);
+                        binList[body] = tv;
+                    }    
+                }
+            }
+            for (let i = 0; i < fileList.length; ++i){
+                const e = fileList[i];
+                const body = getFileNameBody(e.name);
+                const be = binList[body];
+                if (be && e.date < be) {
+                    console.log("bin found." + e.name + ":" + e.date + ":" + be);
+                    e["hasbin"] = true;
                 }
             }
             fileList.sort(function (a, b) {
@@ -561,7 +621,7 @@ class App extends React.Component
         }
     }
 
-    playFile(dir, file)
+    playFile(dir, file, hasbin)
     {
         if (file === "")
             return;
@@ -570,11 +630,14 @@ class App extends React.Component
 //        jobQueue.add(async () => { await this._convert(dir, file); });
 //        jobQueue.add(async () => { await this._playBinFile(dir, file); });
         jobQueue.add(async () => {
-            await this._convert(dir, file);
-            await asyncTest("convert wait", 1000);
+            if (!hasbin) {
+                await setTime();
+                await this._convert(dir, file);
+    //            await asyncTest("convert wait", 1000);
+            }
             await this._playBinFile(dir, file);
         });
-}
+    }
 
     onNewFile()
     {
@@ -582,7 +645,7 @@ class App extends React.Component
         this.setText("");
     }
     
-    onSelectFile(file)
+    onSelectFile(file, hasbin)
     {
         this.setState({currentFile: file});
         if (this.state.editMode)
@@ -591,7 +654,7 @@ class App extends React.Component
         }
         else
         {
-            this.playFile(this.state.currentDir, file);
+            this.playFile(this.state.currentDir, file, hasbin);
         }
     }
 
