@@ -14,8 +14,8 @@ var playerDir = "/lua";
 //var appURLBase = flashAirURLBase + playerDir;
 var flashAirURLBase = "";
 var appURLBase = playerDir;
-var testMode = true;
-
+//var testMode = true;
+var testMode = false;
 
 async function sendCommand(cmd)
 {
@@ -38,6 +38,17 @@ async function sendCommand(cmd)
         return false;
     }
 }
+
+function asyncTest(str, time)
+{
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            console.log("here:" + str);
+            resolve(str);
+        }, time);
+    });
+}
+
 
 function toHex(v, n)
 {
@@ -81,6 +92,8 @@ class SimpleJobQueue
             this.queue.shift();
 
             await j();
+
+            await asyncTest("wait..", 100)
         }
         this.active = false;
     }
@@ -88,15 +101,6 @@ class SimpleJobQueue
 
 var jobQueue = new SimpleJobQueue();
 
-function asyncTest(str, time)
-{
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            console.log("here:" + str);
-            resolve(str);
-        }, time);
-    });
-}
 
 class FileEntry extends React.Component
 {
@@ -473,37 +477,104 @@ class App extends React.Component
     async updateCommand(vol, mask)
     {
         const str = "S" + toHex(vol, 2) + ":" + toHex(mask, 4);
-        sendCommand(str);
+        await sendCommand(str);
+    }
+
+    async _playMMLFile(dir, file)
+    {
+        if (file === "")
+            return false;
+        
+        try
+        {
+            const path = dir + "/" + file;
+            let url = appURLBase + "/player.lua?" + path + "%20" + this.state.volume;
+            console.log("play url: " + url);
+            if (!testMode)
+            {
+                const response = await fetch(url, { method: "get" });
+                if (response.status !== 200)
+                    throw("play file error");
+
+                const text = await response.text();
+                console.log("log = " + text);	// todo: どこかに表示しないと
+            }
+        }
+        catch(e)
+        {
+            console.log("error: " + e);
+        }
+    }
+
+    async _convert(dir, file)
+    {
+        if (file === "")
+            return false;
+        
+        try
+        {
+            const path = dir + "/" + file;
+            let url = appURLBase + "/converter.lua?" + path;
+            console.log("convert url: " + url);
+            if (!testMode)
+            {
+                const response = await fetch(url, { method: "get" });
+                if (response.status !== 200)
+                    throw("convert file error");
+
+                const text = await response.text();
+                console.log("log = " + text);	// todo: どこかに表示しないと
+            }
+        }
+        catch(e)
+        {
+            console.log("error: " + e);
+        }
+    }
+
+    async _playBinFile(dir, file)
+    {
+        if (file === "")
+            return false;
+        
+        try
+        {
+            const body = file.match(/^(.+)(\..+)$/)[1];
+            console.log("body:" + body);
+
+            const path = dir + "/" + body + ".mbin";
+            const url = appURLBase + "/bin_player.lua?" + path + "%20" + this.state.volume;
+            console.log("play bin url: " + url);
+            if (!testMode)
+            {
+                const response = await fetch(url, { method: "get" });
+                if (response.status !== 200)
+                    throw("play bin file error");
+
+                const text = await response.text();
+                console.log("log = " + text);	// todo: どこかに表示しないと
+            }
+        }
+        catch(e)
+        {
+            console.log("error: " + e);
+        }
     }
 
     playFile(dir, file)
     {
         if (file === "")
             return;
-
-        jobQueue.add(
-            async ()=>{
-                try
-                {
-                    const path = dir + "/" + file;
-                    let url = appURLBase + "/player.lua?" + path + "%20" + this.state.volume;
-                    console.log("play url: " + url);
-                    if (!testMode)
-                    {
-                        const response = await fetch(url, { method: "get" });
-                        if (response.status !== 200)
-                            throw("play file error");
-
-                        const text = await response.text();
-                        console.log("log = " + text);	// todo: どこかに表示しないと
-                    }
-                }
-                catch(e)
-                {
-                    console.log("error: " + e);
-                }
-            });
-    }
+        
+//        jobQueue.add(async () => { await this._playMMLFile(dir, file) });
+//        jobQueue.add(async () => { await this._convert(dir, file); });
+//        jobQueue.add(async () => { await this._playBinFile(dir, file); });
+        jobQueue.add(async () => {
+            await this._convert(dir, file);
+            await asyncTest("convert wait", 1000);
+            await this._playBinFile(dir, file);
+        });
+}
 
     onNewFile()
     {

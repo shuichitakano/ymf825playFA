@@ -43,6 +43,7 @@ function main()
     
     data = MusicData.new()
     data:load(input)
+    collectgarbage()
     
     player = MusicPlayer.new(data, ymf825)
     
@@ -65,7 +66,7 @@ function main()
             writeSharedMemory(0, "_")
         end
     
-          sleep(1)
+        sleep(1)
     end
     
     ymf825:setDefaultState()

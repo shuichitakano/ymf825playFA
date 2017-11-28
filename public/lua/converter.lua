@@ -25,7 +25,13 @@ function main()
     data = MusicData.new()
     data:parseFile()
 
-    data:save(input..".bin")
+
+    local body = input:match("^(.+)(%..+)$")
+    local output = body..".mbin"
+    print("output : "..output)
+    data:save(output)
+
+    collectgarbage()
     
 end
 
