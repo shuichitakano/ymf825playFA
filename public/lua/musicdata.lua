@@ -25,12 +25,12 @@ commands
 * note
 	note1.w
 	note2.w
-	clock.b
+	clock.b		: 0 = 256  
 	volume.b
-	program.b : bit0-3: program, bit7: keyoff
+	program.b 	: bit0-3: program, bit7: keyoff
 
 * tempo
-	tempo.w : tempo * 64
+	tempo.w 	: tempo * 64
 
 * loop point
 
@@ -42,7 +42,7 @@ commands
 * loop exit
 
 * key on rate
-	rate.b
+	rate.b		: q0-8 / 16:@q1, 17:@q2, ...
 
 * pitch LFO ON
 

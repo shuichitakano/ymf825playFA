@@ -1,9 +1,11 @@
 ﻿import 'typeface-roboto'
 import React from 'react';
-import { Card, Grid, Paper, Button, AppBar, Typography, Toolbar, TextField, List, ListItem, ListItemText, Divider, Avatar } from 'material-ui';
+import { Card, Grid, Paper, Button, AppBar, Typography, Toolbar, TextField, List, ListItem, ListItemText, ListItemIcon, Divider, Avatar, IconButton } from 'material-ui';
 //import Collapse from 'material-ui/transitions/Collapse';
 import { Switch, FormControlLabel } from 'material-ui';
-import { PlayArrow, SkipPrevious, SkipNext, Stop, Folder, MusicNote } from 'material-ui-icons';
+import { PlayArrow, SkipPrevious, SkipNext, Stop, Folder, MusicNote, Menu as MenuIcon } from 'material-ui-icons';
+import Menu, { MenuItem } from 'material-ui/Menu';
+import Checkbox from 'material-ui/Checkbox';
 
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
@@ -16,6 +18,8 @@ var flashAirURLBase = "";
 var appURLBase = playerDir;
 //var testMode = true;
 var testMode = false;
+
+let canceled = false;
 
 function getFileNameBody(fname)
 {
@@ -121,8 +125,10 @@ class SimpleJobQueue
 
     async kick()
     {
-        if (this.queue.length)
+        if (this.queue.length) {
+            canceled = true;
             await sendCommand("!");	// 曲を止める
+        }
     
         if (this.active){
             return;
@@ -136,7 +142,7 @@ class SimpleJobQueue
 
             await j();
 
-//            await asyncTest("wait..", 100)
+            await asyncTest("wait..", 100)
         }
         this.active = false;
     }
@@ -187,7 +193,7 @@ class FileEntry extends React.Component
 
     handleClick(event)
     {
-        this.props.onSelect(this.props.name, this.props.hasbin);
+        this.props.onSelect(this.props.name, this.props.hasbin, this.props.idx);
     }
 
     render()
@@ -195,8 +201,9 @@ class FileEntry extends React.Component
 //                <Avatar> <MusicNote /> </Avatar>
         return (
             <div>
-            <ListItem button onClick={this.handleClick.bind(this)}>
-                <ListItemText primary={this.state.title} secondary={this.props.name + " : " + this.props.size + "bytes" + (this.props.hasbin ? " : (bin)" : "") } />
+                <ListItem button onClick={this.handleClick.bind(this)}>
+                    {this.props.playing && (<ListItemIcon><PlayArrow /></ListItemIcon>)}       
+                <ListItemText inset primary={this.state.title} secondary={this.props.name + " : " + this.props.size + "bytes" + (this.props.hasbin ? " : (bin)" : "") } />
             </ListItem>
             <Divider inset />
             </div>);
@@ -228,11 +235,12 @@ class FileList extends React.Component
 {
     render()
     {
+        let idx = 0;
         const dir = this.props.dir;
         const nodes = this.props.files.map((d) => {
             return (<FileEntry
                 dir={dir} name={d.name} size={d.size} hasbin={d.hasbin}
-                key={dir+"/"+d.name}
+                key={dir+"/"+d.name} idx={idx} playing={idx++ === this.props.playIdx}
                     onSelect={this.props.onSelectFile} />);
         });
         const dirNodes = this.props.dirs.map((d) => {
@@ -367,8 +375,11 @@ class App extends React.Component
           text: "",
           editMode: false,
           currentFile: "",
+          currentPlayIdx: 0,
           volume: 32,
           chMask: 65535,
+          alwaysConvert: false,
+          anchorEl: null,
           };
     }
 
@@ -411,7 +422,7 @@ class App extends React.Component
                     const spf = fname.split(".");
                     const ext = spf[spf.length - 1].toLowerCase();
                     
-                    if (ext == "mus")
+                    if (ext === "mus")
                     {
                         fileList.push({
                             name: fname,
@@ -420,7 +431,7 @@ class App extends React.Component
                             hasbin: false,
                             });
                     }
-                    else if (ext == "mbin")
+                    else if (ext === "mbin")
                     {
                         const body = getFileNameBody(fname);
                         binList[body] = tv;
@@ -442,6 +453,7 @@ class App extends React.Component
                 return sa === sb ? 0 : (sa < sb ? -1 : 1);
             });
 
+            this.setState({ currentPlayIdx: -1 });
             this.setState({ fileList: fileList });
             this.setState({ dirList: dirList });
         }
@@ -621,23 +633,44 @@ class App extends React.Component
         }
     }
 
-    playFile(dir, file, hasbin)
+    playFile(dir, file, hasbin, idx)
     {
         if (file === "")
             return;
         
 //        jobQueue.add(async () => { await this._playMMLFile(dir, file) });
-//        jobQueue.add(async () => { await this._convert(dir, file); });
-//        jobQueue.add(async () => { await this._playBinFile(dir, file); });
         jobQueue.add(async () => {
-            if (!hasbin) {
+            canceled = false;
+            if (this.state.alwaysConvert || !hasbin) {
                 await setTime();
                 await this._convert(dir, file);
-    //            await asyncTest("convert wait", 1000);
+                await asyncTest("convert wait", 100);
             }
             await this._playBinFile(dir, file);
+            if (testMode)
+                await asyncTest("playing...", 1000);
+            if (!canceled && idx >= 0)
+                this.playFileByIdx(++idx);
         });
     }
+
+    playFileByIdx(idx) {
+        const n = this.state.fileList.length;
+        if (idx >= n || idx < 0) {
+            this.setState({ currentPlayIdx: -1 });
+            return;
+        }
+        console.log("file idx:" + idx + "/" + n);
+        
+        const dir = this.state.currentDir;
+        const f = this.state.fileList[idx];
+        const file = f["name"];
+        const hasbin = f["hasbin"];
+
+        this.playFile(dir, file, hasbin, idx);
+        this.setState({ currentPlayIdx: idx });
+    }
+
 
     onNewFile()
     {
@@ -645,7 +678,7 @@ class App extends React.Component
         this.setText("");
     }
     
-    onSelectFile(file, hasbin)
+    onSelectFile(file, hasbin, idx)
     {
         this.setState({currentFile: file});
         if (this.state.editMode)
@@ -654,7 +687,8 @@ class App extends React.Component
         }
         else
         {
-            this.playFile(this.state.currentDir, file, hasbin);
+            this.playFile(this.state.currentDir, file, hasbin, idx);
+            this.setState({ currentPlayIdx: idx });
         }
     }
 
@@ -728,24 +762,40 @@ class App extends React.Component
             (async ()=>{
                 let r = await this.saveText(playerDir, "_tmp.mus");
                 if (r)
-                    this.playFile(playerDir, "_tmp.mus");
+                    this.playFile(playerDir, "_tmp.mus", false, -1);
             })();
         }
     }
 
     onStop()
     {
+        canceled = true;
         sendCommand("!");
+        this.setState({ currentPlayIdx: -1 });
     }
 
     onPrev()
     {
-        console.log("prev");
+        if (this.state.editMode)
+            return;
+        
+        canceled = true;
+        sendCommand("!");
+        jobQueue.add(async () => {
+            this.playFileByIdx(this.state.currentPlayIdx - 1);
+        });
     }
 
     onNext()
     {
-        console.log("next");
+        if (this.state.editMode)
+        return;
+    
+        canceled = true;
+        sendCommand("!");
+        jobQueue.add(async () => {
+            this.playFileByIdx(this.state.currentPlayIdx + 1);
+        });
     }
 
     onVolume(v)
@@ -760,14 +810,56 @@ class App extends React.Component
         this.updateFileList(this.state.currentDir);
     }
 
+    handleMenu = event => {
+        this.setState({ anchorEl: event.currentTarget });
+      };
+    handleRequestClose = () => {
+        this.setState({ anchorEl: null });
+    };
+    handleCheckChange = name => event => {
+        this.setState({ [name]: event.target.checked });
+      };
+
     render() {
+        const open = Boolean (this.state.anchorEl);
+
         return (
         <div>
 		  <AppBar position="static" color="default">
-		  <Toolbar>
+          <Toolbar>
+            <div>            
+                <IconButton aria-label="Menu"
+                    aria-owns={open ? 'menu-appbar' : null}
+                    aria-haspopup="true"
+                    onClick={this.handleMenu} >
+                    <MenuIcon />
+                    </IconButton>
+                    <Menu
+                  id="menu-appbar"
+                  anchorEl={this.state.anchorEl}
+                  anchorOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                  }}
+                  transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                  }}
+                  open={open}
+                  onRequestClose={this.handleRequestClose}
+                >
+                <MenuItem onClick={this.handleRequestClose}>
+                                    <Checkbox checked={this.state.alwaysConvert}
+                                        onChange={this.handleCheckChange('alwaysConvert')}
+                                    />
+                    Convert always
+                </MenuItem>
+                </Menu>
+            </div>
           <Typography type="title" color="inherit">
 		  YMF825Player
 	  	  </Typography>
+            
           </Toolbar>
 		  </AppBar>
             <div style={{margin: 10}}>
@@ -789,7 +881,8 @@ class App extends React.Component
 			/>
 		  <FileList 
 			files={this.state.fileList} dirs={this.state.dirList}
-			dir={this.state.currentDir} 
+                        dir={this.state.currentDir} 
+                        playIdx={this.state.currentPlayIdx}
 			onSelectFile={this.onSelectFile.bind(this)} 
 			onSelectDir={this.onSelectDir.bind(this)}
 			/>

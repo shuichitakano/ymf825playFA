@@ -26,9 +26,11 @@ for line in io.lines() do
 
     if line:sub(1, 6)=="#title" then
         local text = line:sub(7)
+        --[[
         if not isUTF8 then
             text = fa.strconvert("sjis2utf8", text)
         end
+        ]]
         print(text)
         return
     end

@@ -52,8 +52,10 @@ function MusicData:parseFile()
 
 	--------------------------------------
 	local function parseError(str)
-		error(string.format("parse error:%d:%d: %s", tokenizer.line, tokenizer.column, str))
-	end
+--		error(string.format("parse error:%d:%d: %s", tokenizer.line, tokenizer.column, str))
+		print(string.format("parse error:%d:%d: %s", tokenizer.line, tokenizer.column, str))
+		error("error")
+end
 
 	--------------------------------------
 
@@ -65,6 +67,13 @@ function MusicData:parseFile()
 	local function flushNote(cmd)
 		if currentChState.clock > 0 then
 			local cs = currentChState
+			if cs.clock > 256 then
+				parseError(string.format("invalid clock %d", cs.clock))
+			end
+			if cs.clock == 256 then
+				cs.clock = 0
+			end
+--			print(string.format("note %d:%d, clk %d, vol %d, prg %d\n", cs.note, cs.note2, cs.clock, cs.volume, cs.noteProgram))
 			_pushCmd(string.char(MusicData.CMD_NOTE,
 				bit32.band(cs.note, 255), bit32.rshift(cs.note, 8),
 				bit32.band(cs.note2, 255), bit32.rshift(cs.note2, 8),
@@ -199,7 +208,8 @@ function MusicData:parseFile()
 			if idx then
 				currentChState.program = idx
 			else
-				parseError("program "..num.." is not defined")
+				--parseError("program "..num.." is not defined")
+				print("program "..num.." is not defined")
 			end
 		elseif arg == "v" then
 			local v = tonumber(tokenizer:getToken(true))
@@ -207,6 +217,13 @@ function MusicData:parseFile()
 				currentChState.volume = v
 			else
 				parseError("invalid volume command")
+			end
+		elseif arg == "q" then
+			local v = tonumber(tokenizer:getToken(true))
+			if v then
+				pushCmd(string.char(MusicData.CMD_KEYON_RATE, v + 8))
+			else
+				parseError("invalid keyoff shift command")
 			end
 		elseif arg == "t" then
 			local v = tonumber(tokenizer:getToken(true))
@@ -379,6 +396,17 @@ function MusicData:parseFile()
 	end
 
 	--------------------------------------
+	cmdTable[string.byte("y")] = function(cmd)
+		local v = tokenizer:getVector()
+		if v and #v == 2 then
+--			print("y"..v[1]..", "..v[2])
+			--単に無視する
+		else
+			parseError("invalid y command")
+		end
+	end
+
+	--------------------------------------
 	cmdTable[string.byte("M")] = function(cmd)
 		local arg1 = tokenizer:getToken()
 		if arg1 == "P" then
@@ -464,18 +492,20 @@ function MusicData:parseFile()
 		if cs.portamento then
 			cs.note2 = cs.note
 			cs.portamento = false
+			--最初のnoteのclockが使用される
 		else
 			flushNote()
-			cs.clock = 0
+			--cs.clock = 0
 			cs.note  = 65535
 			cs.note2 = 65535
 			cs.keyOff = true
 			cs.noteProgram = cs.program
 			cs.noteVolume = cs.volume
+
+			local l = currentChState.length
+			cs.clock = baseClock * 4 / l
 		end
 		
-		local l = currentChState.length
-		cs.clock = baseClock * 4 / l
 		local note = cmd - string.byte("a")
 		if note < 7 then
 			local noteTable = { 9, 11, 0, 2, 4, 5, 7 }
@@ -547,9 +577,9 @@ function MusicData:parseFile()
 				-- alg, slotMask, fbMask, srcSlotMap0, 1, 2, 3
 				local algTbl = {
 					{ 4, 15, 1,  0, 1, 2, 3 },	--0: OK
-					{ 3, 15, 0,  2, 1, 0, 3 },	--1: FB 無効 全然違う
+					{ 4, 15, 1,  0, -1, 2, 3 },	--1: op2 なし
 					{ 3, 15, 1,  0, 1, 2, 3 }, 	--2: OK
-					{ 3, 15, 0,  1, 2, 0, 3 },	--3: FB 無効
+					{ 4, 15, 1,  0, -1, 1, 3 },	--3: op3 なし
 					{ 5, 15, 1,  0, 1, 2, 3 },	--4: OK
 					{ 5, 15, 5,  0, 2, 0, 3 },	--5: op2 なし...
 					{ 5, 11, 1,  0, 1, 2, 3 },	--6: op3 なし...
@@ -570,30 +600,41 @@ function MusicData:parseFile()
 				--if noiseInst[idx]
 
 				for i=0, 3 do
-					local sop = tbl[i + 4]
-					local sofs = sop * 11
-					local ms = bit32.lshift(1, sop)
-					local md = bit32.lshift(1, i)
-					local enabled = bit32.band(srcSlotMask, ms) > 0 and bit32.band(dstSlotMask, md) > 0
-					local fbEnable = bit32.band(fbi, md) > 0
-					local ar  = instValues[sofs + 1]
-					local dr  = instValues[sofs + 2]
-					local sr  = instValues[sofs + 3]
-					local rr  = instValues[sofs + 4]
-					local sl  = instValues[sofs + 5]
-					local tl  = enabled and math.min(63, instValues[sofs + 6]) or 63
-					local ks  = instValues[sofs + 7]
-					local ml  = instValues[sofs + 8]
-					local dt1 = instValues[sofs + 9]
 					local dofs = i * 7
-					tmp[dofs + 3] = bit32.lshift(bit32.band(sr, 30), 3)
-					tmp[dofs + 4] = bit32.lshift(rr, 4) + bit32.rshift(dr, 1)
-					tmp[dofs + 5] = bit32.lshift(bit32.band(ar, 30), 3) + sl
-					--tmp[dofs + 6] = bit32.lshift(tl, 2) + ks
-					tmp[dofs + 6] = bit32.lshift(tl, 2)
-					tmp[dofs + 7] = 0
-					tmp[dofs + 8] = bit32.lshift(ml, 4) + dt1
-					tmp[dofs + 9] = fbEnable and fl or 0
+					local sop = tbl[i + 4]
+					if sop < 0 then
+						--opスルーっぽい効果が得られたらいいな設定
+						tmp[dofs + 3] = 0x00	--sr
+						tmp[dofs + 4] = 0x00	--rr, dr
+						tmp[dofs + 5] = 0xf0	--ar, sl
+						tmp[dofs + 6] = 0x00	--tl
+						tmp[dofs + 7] = 0x00
+						tmp[dofs + 8] = 0x10	--ml, dt
+						tmp[dofs + 9] = 7*8		--ws, fb
+					else
+						local sofs = sop * 11
+						local ms = bit32.lshift(1, sop)
+						local md = bit32.lshift(1, i)
+						local enabled = bit32.band(srcSlotMask, ms) > 0 and bit32.band(dstSlotMask, md) > 0
+						local fbEnable = bit32.band(fbi, md) > 0
+						local ar  = instValues[sofs + 1]
+						local dr  = instValues[sofs + 2]
+						local sr  = instValues[sofs + 3]
+						local rr  = instValues[sofs + 4]
+						local sl  = instValues[sofs + 5]
+						local tl  = enabled and math.min(63, instValues[sofs + 6]) or 63
+						local ks  = instValues[sofs + 7]
+						local ml  = instValues[sofs + 8]
+						local dt1 = instValues[sofs + 9]
+						tmp[dofs + 3] = bit32.lshift(bit32.band(sr, 30), 3)
+						tmp[dofs + 4] = bit32.lshift(rr, 4) + bit32.rshift(dr, 1)
+						tmp[dofs + 5] = bit32.lshift(bit32.band(ar, 30), 3) + sl
+						--tmp[dofs + 6] = bit32.lshift(tl, 2) + ks
+						tmp[dofs + 6] = bit32.lshift(tl, 2)
+						tmp[dofs + 7] = 0
+						tmp[dofs + 8] = bit32.lshift(ml, 4) + dt1
+						tmp[dofs + 9] = fbEnable and fl or 0
+					end
 				end
 				
 				--[[

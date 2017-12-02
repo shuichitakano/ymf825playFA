@@ -33,6 +33,7 @@ function main()
     
 end
 
+--[[
 local st, r = pcall(main)
 if st then
 	print("success")
@@ -40,3 +41,5 @@ else
 	print("error!");
 	print(r);
 end
+]]
+main()

@@ -91,6 +91,7 @@ function MusicPlayer.ChState.new(dev)
 	obj.keyOnClock		= 0
 	
 	obj.keyOnRate		= 1
+	obj.keyOffShift		= 0
 	obj.volume			= 0
 
 	obj.currentVolume	= -1
@@ -311,14 +312,23 @@ MusicPlayer.cmdFunc[MusicData.CMD_NOTE] = function(ch, clock, chState, context)
 		= string.byte(chState.cmds, i+1, i+7)
 	chState.currentIdx = i + 7
 
+	if clk == 0 then
+		clk = 256
+	end
+
 	--print(string.format("ch[%d] note %d, note2 %d, clk %d, v %d, prg %d", ch, n1l + n1h*256, n2l + n2h * 256, clk, vol, prg))
 	
 	local keyOff = prg >= 128
 	local note1 = (n1l + n1h * 256) * 0.015625
 	local note2 = (n2l + n2h * 256) * 0.015625
-	
+
+	chState.noteClock = clock
 	chState.nextEventClock 	= clk + clock
-	local length = chState.keyOnRate * clk
+	local length = chState.keyOnRate * clk - chState.keyOffShift
+	if length < 1 then
+		length = 1
+	end
+
 	if keyOff then
 		chState.keyOffClock = length + clock
 	else
@@ -401,8 +411,14 @@ MusicPlayer.cmdFunc[MusicData.CMD_KEYON_RATE] = function(ch, clock, chState, con
 	local i = chState.currentIdx
 	local r = string.byte(chState.cmds, i + 1)
 	chState.currentIdx = i + 1
-	
-	chState.keyOnRate = r * 0.125
+
+	if r < 8 then
+		chState.keyOnRate = r * 0.125
+		chState.keyOffShift = 0
+	else
+		chState.keyOnRate = 1
+		chState.keyOffShift = r - 8
+	end
 end
 
 -----------------------------------------------------------------------------
