@@ -1,5 +1,5 @@
 
---forTest = true
+forTest = true
 
 function main()
 
@@ -11,8 +11,9 @@ else
 	path = "/music/"
 end
 
-require "tokenizer"
+--require "tokenizer"
 require "musicdata"
+require "musicdata_parser"
 require "musicplayer"
 require "ymf825"
 
@@ -47,16 +48,18 @@ end
 updateSharedMemory()
 
 io.input(input)
-
-ymf825 = YMF825.new()
-ymf825:init(true)	-- dual power
-ymf825:setMasterVolume(volume)
-
 data = MusicData.new()
 data:parseFile()
 
 MusicData.parseFile = nil
 collectgarbage()
+
+ymf825 = YMF825.new()
+ymf825:init(true)	-- dual power
+ymf825:setMasterVolume(volume)
+
+--data:save(input..".bin")
+--data:load(input..".bin")
 
 player = MusicPlayer.new(data, ymf825)
 
