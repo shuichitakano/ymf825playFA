@@ -25,7 +25,7 @@ UPLOAD=1
 ## 実行するには
 
 以下のファイルを展開してFlashAirのルートディレクトリに置いてください。
-[Download](https://github.com/shuichitakano/ymf825playFA/releases/download/v0.1/air825_180708.zip)
+[Download](https://github.com/shuichitakano/ymf825playFA/releases/download/v0.2_FW4.00.03/air825_release0_2.zip)
 
 FlashAirにWiFi接続してindex.htmlを開くとWebアプリが実行されます。
 
