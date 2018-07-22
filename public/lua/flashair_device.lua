@@ -23,7 +23,8 @@ function device_setup()
 end
 
 function getCurrentTimeInMS()
-	return os.clock() * 1000000
+--	return os.clock() * 1000000	-- for FW4.00.00
+	return os.clock() * 1000 -- since FW4.00.03
 end
 
 function readSharedMemory(addr, size)
