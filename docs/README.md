@@ -13,7 +13,7 @@ YMF825を搭載したモジュールYMF825Board(http://uda.la/fm/)を使用す�
 
 ## FlashAirのバージョンと設定
 
-FlashAirはW-04のFW4.00.03以降のバージョンを使用してください。
+FlashAirはW-04のファームウェアバージョン4.00.03以降のバージョンを使用してください。
 
 また、LuaからのI/Oアクセスと、WebDAVおよびWebDAVからのファイル更新を許可する必要があります。/SD_WLAN/CONFIG に適切な設定を行ってください。
 ``` :/SD_WLAN/CONFIG
