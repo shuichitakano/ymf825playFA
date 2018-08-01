@@ -5,29 +5,32 @@ import Typography from '@material-ui/core/Typography';
 import { withStyles } from '@material-ui/core/styles';
 import { MuiThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 
-import { Card, Grid, Paper, Button, AppBar, Toolbar, TextField, List, ListItem, ListItemText, ListItemIcon, Divider, Avatar, IconButton } from '@material-ui/core';
-//import Collapse from 'material-ui/transitions/Collapse';
+import { Grid, Paper, Button, AppBar, Toolbar, TextField, List, ListItem, ListItemText, ListItemIcon, Divider, Avatar, IconButton } from '@material-ui/core';
+import Collapse from '@material-ui/core/Collapse';
+import ListItemSecondaryAction from '@material-ui/core/ListItemSecondaryAction';
+import Drawer from '@material-ui/core/Drawer';
+import DialogTitle from '@material-ui/core/DialogTitle';
+import DialogActions from '@material-ui/core/DialogActions';
+import DialogContent from '@material-ui/core/DialogContent';
+import DialogContentText from '@material-ui/core/DialogContentText'; import Dialog from '@material-ui/core/Dialog';
 import { Switch, FormControlLabel } from '@material-ui/core';
-import { PlayArrow, SkipPrevious, SkipNext, Stop, Folder, MusicNote, Menu as MenuIcon } from '@material-ui/icons';
+import { PlayArrow, SkipPrevious, SkipNext, Stop, Folder, Menu as MenuIcon } from '@material-ui/icons';
+import MusicNoteIcon from '@material-ui/icons/MusicNote';
+import QueueMusicIcon from '@material-ui/icons/QueueMusic';
+import PlaylistAddIcon from '@material-ui/icons/PlaylistAdd';
+import SdCardIcon from '@material-ui/icons/SdCard';
+import CloudIcon from '@material-ui/icons/Cloud';
+import SettingsIcon from '@material-ui/icons/Settings';
+import FolderOpenIcon from '@material-ui/icons/FolderOpen';
+import ExpandLess from '@material-ui/icons/ExpandLess';
+import ExpandMore from '@material-ui/icons/ExpandMore';
 import Menu from '@material-ui/core/Menu';
 import MenuItem from '@material-ui/core/MenuItem';
 import Checkbox from '@material-ui/core/Checkbox';
+import Hidden from '@material-ui/core/Hidden';
 
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
-
-const styles = {
-    root: {
-        width: '100%',
-    },
-    flex: {
-        flex: 1,
-    },
-    menuButton: {
-        marginLeft: -12,
-        marginRight: 20,
-    },
-};
 
 
 var playerDir = "/lua";
@@ -37,6 +40,63 @@ var flashAirURLBase = "";
 var appURLBase = playerDir;
 //var testMode = true;
 var testMode = false;
+
+
+const drawerWidth = 240;
+
+const styles = theme => ({
+    root: {
+        flexGrow: 1,
+        //        zIndex: 1,
+        position: 'relative',
+        display: 'flex',
+        width: '100%',
+        overflow: 'hidden'
+    },
+    appBar: {
+        position: 'absolute',
+        marginLeft: drawerWidth,
+        // [theme.breakpoints.up('md')]: {
+        //     width: `calc(100% - ${drawerWidth}px)`,
+        // },
+        zIndex: theme.zIndex.drawer + 1,
+    },
+    navIconHide: {
+        [theme.breakpoints.up('md')]: {
+            display: 'none',
+        },
+    },
+    flex: {
+        flex: 1,
+    },
+    menuButton: {
+        marginLeft: -12,
+        marginRight: 20,
+    },
+    toolbar: theme.mixins.toolbar,
+    drawerPaper: {
+        width: drawerWidth,
+        [theme.breakpoints.up('md')]: {
+            position: 'relative',
+        },
+    },
+    content: {
+        flexGrow: 1,
+        backgroundColor: theme.palette.background.default,
+        padding: theme.spacing.unit * 3,
+        overflow: 'hidden'
+    },
+});
+
+
+
+
+
+const ListMode = {
+    FlashAir: 0,
+    Cloud: 1,
+    Playlist: 2,
+};
 
 let canceled = false;
 
@@ -164,22 +224,24 @@ class FileEntry extends React.Component {
     }
 
     getPath() {
+        if (this.props.listMode === ListMode.Playlist)
+            return this.props.name;
         return this.props.dir + "/" + this.props.name;
     }
 
     componentDidMount() {
         let fname = this.getPath();
         let url = appURLBase + "/get_title.lua?" + fname;
+        console.log("uri:" + url);
         if (testMode)
             url = "test_title.htm";
-        //        console.log("uri:" + url);
 
         jobQueue.add(
             async () => {
                 try {
                     let response = await fetch(url, { method: "get" });
                     if (response.status !== 200)
-                        throw ("load title error");
+                        throw new Error("load title error");
 
                     let text = (await response.text()).trim();
                     if (text.charAt(0) === '"' && text.charAt(text.length - 1) === '"') {
@@ -196,15 +258,35 @@ class FileEntry extends React.Component {
         this.props.onSelect(this.props.name, this.props.hasbin, this.props.idx);
     }
 
+    handleAddPlaylistMenu = (e) => {
+        this.props.onAddPlaylistMenu(this.props.name, e.currentTarget);
+    };
+
     render() {
-        //                <Avatar> <MusicNote /> </Avatar>
+        var _2ndAct;
+        if (this.props.listMode !== ListMode.Playlist) {
+            _2ndAct = (
+                <ListItemSecondaryAction>
+                    <IconButton onClick={this.handleAddPlaylistMenu}>
+                        <PlaylistAddIcon />
+                    </IconButton>
+                </ListItemSecondaryAction>
+            );
+        }
+
         return (
             <div>
-                <ListItem button onClick={this.handleClick.bind(this)}>
+                <ListItem button
+                    onClick={this.handleClick.bind(this)}
+                // selected={this.props.playing}
+                >
                     {this.props.playing && (<ListItemIcon><PlayArrow /></ListItemIcon>)}
-                    <ListItemText inset primary={this.state.title} secondary={this.props.name + " : " + this.props.size + "bytes" + (this.props.hasbin ? " : (bin)" : "")} />
+                    <ListItemText
+                        primary={this.state.title}
+                        secondary={this.props.info} />
+                    {_2ndAct}
                 </ListItem>
-                <Divider inset />
+                <Divider />
             </div>);
     }
 };
@@ -229,25 +311,69 @@ class DirEntry extends React.Component {
 
 class FileList extends React.Component {
     render() {
-        let idx = 0;
+        //        const needDir = this.props.listMode != ListMode.Playlist;
+        const needDir = this.props.listMode === ListMode.FlashAir;
+
         const dir = this.props.dir;
-        const nodes = this.props.files.map((d) => {
+        const nodes = this.props.files.map((d, idx) => {
+            var info;
+            switch (this.props.listMode) {
+                case ListMode.FlashAir:
+                case ListMode.Cloud:
+                    info = d.name + " : " + d.size + "bytes";
+                    if (this.props.hasbin)
+                        info += " (bin)";
+                    break;
+
+                default:
+                    info = d.name;
+                    break;
+            };
             return (<FileEntry
-                dir={dir} name={d.name} size={d.size} hasbin={d.hasbin}
-                key={dir + "/" + d.name} idx={idx} playing={idx++ === this.props.playIdx}
-                onSelect={this.props.onSelectFile} />);
+                dir={dir} name={d.name} info={info}
+                key={dir + "/" + d.name} idx={idx} playing={idx === this.props.playIdx}
+                onSelect={this.props.onSelectFile}
+                listMode={this.props.listMode}
+                onAddPlaylistMenu={this.props.onAddPlaylistMenu} />);
         });
         const dirNodes = this.props.dirs.map((d) => {
             return (<DirEntry name={d.name} onSelect={this.props.onSelectDir}
                 key={d.name} />);
         });
         let parentDir;
-        if (dir !== "/")
+        if (dir !== "/" && needDir)
             parentDir = (<DirEntry name=".." onSelect={this.props.onSelectDir} />);
+
+        let icon;
+        switch (this.props.listMode) {
+            case ListMode.FlashAir:
+                //                icon = (<FolderOpenIcon />);
+                icon = (<SdCardIcon />);
+                break;
+
+            case ListMode.Cloud:
+                icon = (<CloudIcon />);
+                break;
+
+            case ListMode.Playlist:
+                icon = (<QueueMusicIcon />);
+                break;
+
+            default:
+                break;
+        }
+
+        let title;
+        if (needDir) {
+            title = this.props.dir;
+        } else {
+            title = this.props.currentPlaylist;
+        }
+
         return (
             <Grid container style={{ paddingTop: 2, paddingBotton: 2, marginTop: 10 }}>
                 <Grid item xs={12}>
-                    <Typography variant="display1" paragraph> {this.props.dir} </Typography>
+                    <Typography variant="display1" paragraph> {icon} {title} </Typography>
                 </Grid>
                 <Grid item xs={12}>
                     <List>
@@ -338,25 +464,130 @@ class PlayerControl extends React.Component {
 
 
     render() {
-        return (<Grid container justify="center" spacing={40} >
-            <Grid item>
-                <Button variant="fab" color="default" onClick={this.props.onPrev} > <SkipPrevious /> </Button>
+        return (
+            <Grid container justify="center" spacing={32}>
+                <Grid item>
+                    <Button variant="fab" color="default" onClick={this.props.onPrev} > <SkipPrevious /> </Button>
+                </Grid>
+                <Grid item>
+                    <Button variant="fab" color="primary" onClick={this.props.onPlay} > <PlayArrow /> </Button>
+                </Grid>
+                <Grid item>
+                    <Button variant="fab" color="default" onClick={this.props.onStop} > <Stop /> </Button>
+                </Grid>
+                <Grid item>
+                    <Button variant="fab" color="default" onClick={this.props.onNext} > <SkipNext /> </Button>
+                </Grid>
+                <Grid item xs={12}>
+                    <Slider min={0} max={63} defaultValue={this.props.volume} onAfterChange={this.onVolumeChange.bind(this)} />
+                </Grid>
             </Grid>
-            <Grid item>
-                <Button variant="fab" color="primary" onClick={this.props.onPlay} > <PlayArrow /> </Button>
-            </Grid>
-            <Grid item>
-                <Button variant="fab" color="default" onClick={this.props.onStop} > <Stop /> </Button>
-            </Grid>
-            <Grid item>
-                <Button variant="fab" color="default" onClick={this.props.onNext} > <SkipNext /> </Button>
-            </Grid>
-            <Grid item xs={12}>
-                <Slider min={0} max={63} defaultValue={this.props.volume} onAfterChange={this.onVolumeChange.bind(this)} />
-            </Grid>
-        </Grid>);
+        );
     }
 };
+
+class FormDialog extends React.Component {
+    handleClose = (e) => {
+        e.preventDefault();
+        const text = this.input.value.trim();
+        this.props.onClose(text);
+    };
+
+    handleCancel = () => {
+        this.props.onClose();
+    };
+
+    render() {
+        const { classes, onClose, selectedValue, ...other } = this.props;
+
+        return (
+            <Dialog
+                onClose={this.handleClose}
+                aria-labelledby="form-dialog-title"
+                {...other}
+            >
+                <form onSubmit={this.handleClose}>
+                    <DialogTitle id="form-dialog-title">{this.props.title}</DialogTitle>
+                    <DialogContent>
+                        <DialogContentText> {this.props.text} </DialogContentText>
+                        <TextField
+                            autoFocus
+                            margin="dense"
+                            inputRef={(input) => this.input = input}
+                            id="name"
+                            label={this.props.label}
+                            type="text"
+                            fullWidth
+                        />
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={this.handleCancel} color="primary"> Cancel </Button>
+                        <Button onClick={this.handleClose} color="primary"> OK </Button>
+                    </DialogActions>
+                </form>
+            </Dialog>
+        );
+    }
+};
+
+function makePathString(dir, file) {
+    if (dir !== "/")
+        return dir + "/" + file;
+    return file;
+}
+
+async function saveText(dir, file, text) {
+    let url = flashAirURLBase + makePathString(dir, file);
+    console.log("save file url: " + url);
+    if (!testMode) {
+        const response = await fetch(url, {
+            method: "PUT",
+            body: text,
+            headers: {
+                "Content-Type": "text/plain"
+            }
+        });
+        return response.status === 200;
+    }
+    return true;
+}
+
+async function loadPlaylist(playlistFile) {
+    try {
+        let url = flashAirURLBase + "/playlists/" + playlistFile;
+        console.log("load playlist url: " + url);
+        if (testMode)
+            url = "test_playlist.htm";
+
+        const response = await fetch(url, { method: "get" });
+        if (response.status !== 200)
+            throw new Error("load playlist error");
+
+        const text = await response.text();
+        //        console.log("text=" + text);
+
+        return text.split(/\n/g);
+    }
+    catch (e) {
+        console.log("error: " + e);
+        return null;
+    }
+}
+
+async function savePlaylist(playlistFile, list) {
+    const text = list.join("\n");
+    //    console.log("text=" + text);
+    await saveText("/playlists", playlistFile, text);
+}
+
+async function addToPlaylist(playlistFile, file) {
+    const list = await loadPlaylist(playlistFile);
+    if (!list)
+        return;
+    list.push(file);
+    await savePlaylist(playlistFile, list);
+}
+
 
 
 //class App extends React.Component {
@@ -366,6 +597,7 @@ class App extends React.PureComponent {
         this.state = {
             fileList: [],
             dirList: [],
+            playlistList: [],
             currentDir: "/",
             text: "",
             editMode: false,
@@ -374,7 +606,14 @@ class App extends React.PureComponent {
             volume: 32,
             chMask: 65535,
             alwaysConvert: false,
-            anchorEl: null,
+            settingsMenuAnchorEl: null,
+            drawerOpen: false,
+            playlistOpen: false,
+            playlistNewDialogOpen: false,
+            addPlaylistMenuAnchor: null,
+            playlistToAddFile: null,
+            listMode: ListMode.FlashAir,
+            currentPlaylist: null,
         };
     }
 
@@ -386,7 +625,7 @@ class App extends React.PureComponent {
                 url = "test_filelist.htm";
             const response = await fetch(url, { method: "get" });
             if (response.status !== 200)
-                throw ("load title error");
+                throw new Error("load title error");
             const text = await response.text();
             let lines = text.split(/\n/g);
             lines.shift();		// WLANSD_FILELIST
@@ -442,14 +681,53 @@ class App extends React.PureComponent {
                 return sa === sb ? 0 : (sa < sb ? -1 : 1);
             });
 
-            this.setState({ currentPlayIdx: -1 });
-            this.setState({ fileList: fileList });
-            this.setState({ dirList: dirList });
+            this.setState({
+                currentPlayIdx: -1,
+                fileList: fileList,
+                dirList: dirList
+            });
         }
         catch (e) {
             console.log("error: " + e);
         }
     }
+
+    async updatePlaylistList() {
+        try {
+            let url = flashAirURLBase + "/command.cgi?op=100&DIR=" + flashAirURLBase + "/playlists";
+            console.log("url:" + url);
+            if (testMode)
+                url = "test_playlists.htm";
+            const response = await fetch(url, { method: "get" });
+            if (response.status !== 200)
+                throw new Error("load playlist error");
+            const text = await response.text();
+            let lines = text.split(/\n/g);
+            lines.shift();		// WLANSD_FILELIST
+            lines.pop();		// empty
+            let fileList = [];
+            for (let i = 0; i < lines.length; ++i) {
+                const elements = lines[i].split(",");
+                const fname = elements[1];
+                const attr = Number(elements[3]);
+                const isDir = attr & 16;
+                if (!isDir) {
+                    const spf = fname.split(".");
+                    const ext = spf[spf.length - 1].toLowerCase();
+
+                    if (ext === "playlist") {
+                        fileList.push(getFileNameBody(fname));
+                    }
+                }
+            }
+            fileList.sort();
+            this.setState({ playlistList: fileList });
+        }
+        catch (e) {
+            console.log("error: " + e);
+        }
+    }
+
 
     setText(text) {
         this.setState({ text: text });
@@ -468,7 +746,7 @@ class App extends React.PureComponent {
                 url = "test_text.htm";
             const response = await fetch(url, { method: "get" });
             if (response.status !== 200)
-                throw ("load file error");
+                throw new Error("load file error");
 
             const text = await response.text();
             this.setText(text);
@@ -484,44 +762,6 @@ class App extends React.PureComponent {
         if (!testMode) {
             return await fetch(url, { method: "get" });
         }
-    }
-
-    async saveText(dir, file) {
-        if (true) {
-            let url = flashAirURLBase + dir + "/" + file;
-            console.log("save file url: " + url);
-            if (!testMode) {
-                const response = await fetch(url, {
-                    method: "PUT",
-                    body: this.state.text,
-                    headers: {
-                        "Content-Type": "text/plain"
-                    }
-                });
-                return response.status === 200;
-            }
-            return true;
-        }
-        else {
-            let form = new FormData();
-            let blob = new Blob([this.state.text], { type: "text/plain" });
-            console.log("save file: " + file);
-            console.log("save text: " + this.state.text);
-            form.append("fileName", file);
-            form.append("file", blob);
-
-            await this.setCurrentDirAndTime(dir);
-
-            let url = flashAirURLBase + "/upload.cgi";
-            //        url = "http://httpbin.org/post";
-            console.log("save text:" + url);
-            if (!testMode) {
-                const response = await fetch(url, { method: "POST", body: form });
-                console.log(response);
-                return response.status === 200;
-            }
-        }
-        return true;
     }
 
     async updateCommand(vol, mask) {
@@ -540,7 +780,7 @@ class App extends React.PureComponent {
             if (!testMode) {
                 const response = await fetch(url, { method: "get" });
                 if (response.status !== 200)
-                    throw ("play file error");
+                    throw new Error("play file error");
 
                 const text = await response.text();
                 console.log("log = " + text);	// todo: どこかに表示しないと
@@ -562,7 +802,7 @@ class App extends React.PureComponent {
             if (!testMode) {
                 const response = await fetch(url, { method: "get" });
                 if (response.status !== 200)
-                    throw ("convert file error");
+                    throw new Error("convert file error");
 
                 const text = await response.text();
                 console.log("log = " + text);	// todo: どこかに表示しないと
@@ -587,7 +827,7 @@ class App extends React.PureComponent {
             if (!testMode) {
                 const response = await fetch(url, { method: "get" });
                 if (response.status !== 200)
-                    throw ("play bin file error");
+                    throw new Error("play bin file error");
 
                 const text = await response.text();
                 console.log("log = " + text);	// todo: どこかに表示しないと
@@ -636,18 +876,20 @@ class App extends React.PureComponent {
     }
 
 
+
     onNewFile() {
         this.setState({ currentFile: "" });
         this.setText("");
     }
 
     onSelectFile(file, hasbin, idx) {
+        const dir = this.state.listMode === ListMode.Playlist ? "" : this.state.currentDir;
         this.setState({ currentFile: file });
         if (this.state.editMode) {
-            this.loadText(this.state.currentDir, file);
+            this.loadText(dir, file);
         }
         else {
-            this.playFile(this.state.currentDir, file, hasbin, idx);
+            this.playFile(dir, file, hasbin, idx);
             this.setState({ currentPlayIdx: idx });
         }
     }
@@ -701,7 +943,7 @@ class App extends React.PureComponent {
             file += ".mus";
             this.setState({ currentFile: file });
         }
-        await this.saveText(this.state.currentDir, file);
+        await saveText(this.state.currentDir, file, this.state.text);
         this.updateFileList(this.state.currentDir);
     }
 
@@ -709,7 +951,7 @@ class App extends React.PureComponent {
         console.log("play");
         if (this.state.editMode && this.state.text !== "") {
             (async () => {
-                let r = await this.saveText(playerDir, "_tmp.mus");
+                let r = await saveText(playerDir, "_tmp.mus", this.state.text);
                 if (r)
                     this.playFile(playerDir, "_tmp.mus", false, -1);
             })();
@@ -752,16 +994,103 @@ class App extends React.PureComponent {
 
     componentDidMount() {
         this.updateFileList(this.state.currentDir);
+        this.updatePlaylistList();
     }
 
-    handleMenu = event => {
-        this.setState({ anchorEl: event.currentTarget });
+    handleSettingsMenu = event => {
+        this.setState({ settingsMenuAnchorEl: event.currentTarget });
     };
-    handleRequestClose = () => {
-        this.setState({ anchorEl: null });
+    handleRequestSettingsMenuClose = () => {
+        this.setState({ settingsMenuAnchorEl: null });
     };
+
     handleCheckChange = name => event => {
         this.setState({ [name]: event.target.checked });
+    };
+
+    handlePlaylistClick = () => {
+        this.setState({ playlistOpen: !this.state.playlistOpen });
+    };
+
+    handleDrawerToggle = () => {
+        this.setState({ drawerOpen: !this.state.drawerOpen });
+    };
+
+    handlePlaylistNewOpen = () => {
+        this.setState({ playlistNewDialogOpen: true });
+    };
+
+    handleAddPlaylistMenu = (fname, target) => {
+        console.log("add playlist:" + fname);
+        this.setState({
+            playlistToAddFile: fname,
+            addPlaylistMenuAnchor: target
+        });
+    };
+
+    handleCloseAddPlaylistMenu = (i) => {
+        if (this.state.playlistToAddFile) {
+            console.log("close " + i + ", file" + this.state.playlistToAddFile);
+            addToPlaylist(
+                this.state.playlistList[i] + ".playlist",
+                makePathString(
+                    this.state.currentDir,
+                    this.state.playlistToAddFile));
+        }
+        this.setState({
+            playlistToAddFile: null,
+            addPlaylistMenuAnchor: null
+        });
+    };
+
+    handlePlaylistNewDialogClose = async value => {
+        if (value) {
+            console.log("new playlist:" + value);
+            if (this.state.playlistList.indexOf(value) < 0) {
+                await saveText("/playlists", value + ".playlist", "");
+                this.updatePlaylistList();
+            } else {
+                console.log("already exist.");
+            }
+        }
+        this.setState({ playlistNewDialogOpen: false });
+    };
+
+    changeListMode = mode => {
+        if (this.state.listMode === mode)
+            return;
+
+        this.setState({
+            listMode: mode,
+            currentPlaylist: null,
+            drawerOpen: false,
+        });
+
+        if (mode === ListMode.FlashAir) {
+            this.updateFileList(this.state.currentDir);
+        } else {
+            this.setState({ fileList: [], dirList: [] });
+        }
+    };
+
+    setCurrentPlaylist = async playlist => {
+        if (this.state.currentPlaylist === playlist)
+            return;
+
+        const list = await loadPlaylist(playlist + ".playlist");
+        const flist = list.map((l) => {
+            return {
+                name: l
+            };
+        });
+
+        this.setState({
+            currentPlaylist: playlist,
+            listMode: ListMode.Playlist,
+            fileList: flist,
+            dirList: [],
+            drawerOpen: false,
+        });
     };
 
     static propTypes = {
@@ -769,50 +1098,178 @@ class App extends React.PureComponent {
     };
 
     render() {
-        const { classes } = this.props;
+        const { classes, theme } = this.props;
 
-        const open = Boolean(this.state.anchorEl);
+        const openSettingsMenu = Boolean(this.state.settingsMenuAnchorEl);
+        const openDrawer = this.state.drawerOpen;
+
+        const playlists = this.state.playlistList.map((l) => {
+            return (
+                <MenuItem button key={l}
+                    selected={this.state.currentPlaylist === l}
+                    onClick={() => { this.setCurrentPlaylist(l) }}
+                >
+                    <ListItemText> {l} </ListItemText>
+                </MenuItem>
+            );
+        });
+
+        const addPlaylists = this.state.playlistList.map((l, idx) => {
+            return (
+                <MenuItem key={l}
+                    onClick={() => { this.handleCloseAddPlaylistMenu(idx); }}> {l}
+                </MenuItem>
+            );
+        });
+
+        const drawer = (
+            <div>
+                <div className={classes.toolbar} />
+                <Divider />
+                <List>
+                    <MenuItem button
+                        aria-owns={openSettingsMenu ? 'menu-settings' : null}
+                        aria-haspopup="true"
+                        onClick={this.handleSettingsMenu}>
+                        <ListItemIcon>
+                            <SettingsIcon />
+                        </ListItemIcon>
+                        <ListItemText
+                            primary="Settings"
+                        />
+                    </MenuItem>
+                    <Divider />
+                    <MenuItem button
+                        selected={this.state.listMode === ListMode.FlashAir}
+                        onClick={() => { this.changeListMode(ListMode.FlashAir); }}
+                    >
+                        <ListItemIcon>
+                            <SdCardIcon />
+                        </ListItemIcon>
+                        <ListItemText
+                            primary="FlashAir"
+                        />
+                    </MenuItem>
+                    <MenuItem button
+                        selected={this.state.listMode === ListMode.Cloud}
+                        onClick={() => { this.changeListMode(ListMode.Cloud); }}
+                    >
+                        <ListItemIcon>
+                            <CloudIcon />
+                        </ListItemIcon>
+                        <ListItemText
+                            primary="Cloud?"
+                        />
+                    </MenuItem>
+                    <MenuItem button
+                        selected={this.state.listMode === ListMode.Playlist}
+                        onClick={this.handlePlaylistClick}
+                    >
+                        <ListItemIcon>
+                            <QueueMusicIcon />
+                        </ListItemIcon>
+                        <ListItemText
+                            primary="Playlists"
+                        />
+                        {this.state.playlistOpen ? <ExpandLess /> : <ExpandMore />}
+                    </MenuItem>
+                    <Collapse in={this.state.playlistOpen} timeout="auto" unmountOnExit>
+                        <List component="div" disablePadding>
+                            {playlists}
+                            <MenuItem button onClick={this.handlePlaylistNewOpen} >
+                                <ListItemText primary="New Playlist" primaryTypographyProps={{ variant: 'button' }} />
+                            </MenuItem>
+                        </List>
+                    </Collapse>
+                </List>
+            </div>
+        );
 
         return (
             <div className={classes.root}>
-                <AppBar position="static" color="default">
+                <AppBar className={classes.appBar} color="default">
                     <Toolbar>
                         <div>
                             <IconButton aria-label="Menu"
-                                aria-owns={open ? 'menu-appbar' : null}
-                                aria-haspopup="true"
-                                onClick={this.handleMenu} >
+                                onClick={this.handleDrawerToggle}
+                                className={classes.navIconHide}
+                            >
                                 <MenuIcon />
                             </IconButton>
-                            <Menu
-                                id="menu-appbar"
-                                anchorEl={this.state.anchorEl}
-                                getContentAnchorEl={null}
-                                anchorOrigin={{
-                                    vertical: 'top',
-                                    horizontal: 'right',
-                                }}
-                                transformOrigin={{
-                                    vertical: 'top',
-                                    horizontal: 'left',
-                                }}
-                                open={open}
-                                onClose={this.handleRequestClose}
-                            >
-                                <MenuItem onClick={this.handleRequestClose}>
-                                    <Checkbox checked={this.state.alwaysConvert}
-                                        onChange={this.handleCheckChange('alwaysConvert')}
-                                    />
-                                    <Typography className={classes.typography}> Convert always</Typography>
-                                </MenuItem>
-                            </Menu>
                         </div>
                         <Typography variant="title" color="inherit" className={classes.flex}>
                             YMF825Player
 	  	                </Typography>
                     </Toolbar>
                 </AppBar>
-                <div style={{ margin: 10 }}>
+                <Hidden mdUp>
+                    <Drawer
+                        variant="temporary"
+                        anchor="left"
+                        open={openDrawer}
+                        onClose={this.handleDrawerToggle}
+                        ModalProps={{
+                            keepMounted: true,
+                        }}
+                        classes={{
+                            paper: classes.drawerPaper,
+                        }}
+                    >
+                        {drawer}
+                    </Drawer>
+                </Hidden>
+                <Hidden smDown implementation="css">
+                    <Drawer
+                        variant="permanent"
+                        open
+                        classes={{
+                            paper: classes.drawerPaper,
+                        }}
+                    >
+                        {drawer}
+                    </Drawer>
+                </Hidden>
+
+                <Menu
+                    id="menu-settings"
+                    anchorEl={this.state.settingsMenuAnchorEl}
+                    anchorOrigin={{
+                        vertical: 'top',
+                        horizontal: 'right',
+                    }}
+                    transformOrigin={{
+                        vertical: 'top',
+                        horizontal: 'left',
+                    }}
+                    open={openSettingsMenu}
+                    onClose={this.handleRequestSettingsMenuClose}
+                >
+                    <MenuItem>
+                        <Checkbox checked={this.state.alwaysConvert}
+                            onChange={this.handleCheckChange('alwaysConvert')}
+                        />
+                        <Typography className={classes.typography}> Convert always</Typography>
+                    </MenuItem>
+                </Menu>
+                <FormDialog
+                    open={this.state.playlistNewDialogOpen}
+                    onClose={this.handlePlaylistNewDialogClose}
+                    title="New Playlist"
+                    text="Please enter a name for the new playlist."
+                    label="Name"
+                />
+                <Menu
+                    id="add-playlist-menu"
+                    anchorEl={this.state.addPlaylistMenuAnchor}
+                    open={Boolean(this.state.addPlaylistMenuAnchor)}
+                    onClose={this.handleCloseAddPlaylistMenu}
+                >
+                    {addPlaylists}
+                </Menu>
+
+
+                <main className={classes.content}>
+                    <div className={classes.toolbar} />
 
                     <PlayerControl
                         onPlay={this.onPlay.bind(this)}
@@ -835,11 +1292,19 @@ class App extends React.PureComponent {
                         playIdx={this.state.currentPlayIdx}
                         onSelectFile={this.onSelectFile.bind(this)}
                         onSelectDir={this.onSelectDir.bind(this)}
+                        onAddPlaylistMenu={this.handleAddPlaylistMenu}
+                        listMode={this.state.listMode}
+                        currentPlaylist={this.state.currentPlaylist}
                     />
 
-                </div>
-            </div>);
+                </main>
+            </div >);
     };
 };
 
-export default withStyles(styles)(App);
+App.propTypes = {
+    classes: PropTypes.object.isRequired,
+    theme: PropTypes.object.isRequired,
+};
+
+export default withStyles(styles, { withTheme: true })(App);
