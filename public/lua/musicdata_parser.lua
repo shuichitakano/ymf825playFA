@@ -637,13 +637,12 @@ end
 					end
 				end
 				
-				--[[
-				for i=1,30 do
-					print(string.format("%02x ", tmp[i]))
-				end
-				print("\n")
-				--]]
-				self.instData[idx + 1] = string.char(unpack(tmp))
+				-- for i=1,30 do
+				-- 	print(string.format("%02x ", tmp[i]))
+				-- end
+				-- print("\n")
+
+				self.instData[idx + 1] = string.char(table.unpack(tmp))
 
 				defInst = nil
 				instValues = {}

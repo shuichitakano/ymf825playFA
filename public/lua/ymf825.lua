@@ -102,7 +102,7 @@ function YMF825:setDefaultState()
 		0x00,0x00,0xf0,0x68,0x00,0x40,0x07, 
 		0x00,0x67,0xf3,0x10,0x00,0x20,0x00,
 	} 
-	self:defineTones({string.char(unpack(defaultTone))})
+	self:defineTones({string.char(table.unpack(defaultTone))})
 	
 	for i=1, 16 do
 		self:selectCh(i)
