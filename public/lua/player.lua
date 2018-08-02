@@ -1,8 +1,6 @@
 
 --forTest = true
 
-function main()
-
 if forTest then
 	package.path = "./?.lua"
 	path = ""
@@ -19,15 +17,19 @@ require "ymf825"
 
 if arg[1] then
 	input = arg[1]
-else
-	--input = arg[1]
-	--input = path.."KNA08.MUS"
-	--input = path.."DS02.MUS"
-	--input = path.."SC88_064.MUS"
-	--input = path.."ys2_title_1.mus"
-	--input = path.."YS2_17.MUS"
-	--input = path.."happy_happy.mus"
-	input = path.."test.mus"
+end
+
+if not input then
+	error("no input.\n");
+	return;
+end
+
+playlist = {}
+if input:sub(#input-8)==".playlist" then
+	for l in io.lines(input) do
+		print(l)
+		table.insert(playlist, l)
+	end
 end
 
 local chMask = 65535
@@ -37,22 +39,47 @@ if arg[2] then
 	volume = tonumber(arg[2])
 end
 
-print(string.format("input = %s, volume = %d\n", input, volume))
-
+listIdx = 0
+if arg[3] then
+	listIdx = tonumber(arg[3])
+end
 
 function updateSharedMemory()
 	local r = string.format("_%02x:%04x", volume, chMask)
 	writeSharedMemory(0, r)
 end
 
+exitReq = false
+
+function main(input)
+
+local body = input:match("^(.+)(%..+)$")
+local ext = input:sub(#body + 1)
+
+print(string.format("input = %s('%s'.'%s'), volume = %d\n", input, body, ext, volume))
+
+
+
 updateSharedMemory()
 
-io.input(input)
 data = MusicData.new()
-data:parseFile()
+if data:load(body..".mbin") then 
+	collectgarbage()
+	print("music data binary load success.\n");
+else
+	print("no binary. convert...\n");
 
-MusicData.parseFile = nil
-collectgarbage()
+	io.input(input)
+	data:parseFile()
+
+	local output = body..".mbin"
+	print("output: "..output)
+	data:save(output)	
+
+	MusicData.parseFile = nil
+	collectgarbage()
+end
+
 
 ymf825 = YMF825.new()
 ymf825:init(true)	-- dual power
@@ -76,12 +103,12 @@ while player:isPlaying() do
 	local cmd = commandStr:sub(1, 1);
 	if cmd=="!" then
 		player:fadeOut()
+		exitReq = true
 	elseif cmd=="S" then
-		local v = tonumber(commandStr:sub(2, 3), 16)
-		local m = tonumber(commandStr:sub(5, 8), 16)
-		print(string.format("v = %d, m = %d", v, m))
-		player:setMasterVolume(v)
-		--player:setChMask(m)
+		volume = tonumber(commandStr:sub(2, 3), 16)
+		chMask = tonumber(commandStr:sub(5, 8), 16)
+		player:setMasterVolume(volume)
+		--player:setChMask(chMask)
 		writeSharedMemory(0, "_")
 	end
 
@@ -92,10 +119,29 @@ ymf825:setDefaultState()
 
 end
 
-local st, r = pcall(main)
-if st then
-	print("success")
+-- local st, r = pcall(main)
+-- if st then
+-- 	print("success")
+-- else
+-- 	print("error!")
+-- 	print(r)
+-- end
+
+
+if next(playlist) then
+	-- playlist
+	while not exitReq do
+		f = playlist[listIdx + 1]
+		print(string.format("f[%d]:%s\n", listIdx, f))
+		main(f)
+
+		listIdx = listIdx + 1
+		if listIdx >= #playlist then
+			listIdx = 0
+		end
+	end
+
 else
-	print("error!");
-	print(r);
+	-- single
+	main(input)
 end

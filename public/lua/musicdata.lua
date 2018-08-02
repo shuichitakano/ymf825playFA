@@ -114,10 +114,15 @@ end
 
 --------------------------------------
 function MusicData:load(filename)
-	local file = io.open(filename, "rb");
+	local file, err = io.open(filename, "rb");
+	if file==nil then
+		return false
+	end
+
 	local magic = file:read(4)
 	if magic ~= "M825" then
-		error("invlid magic")
+		print("invalid magic")
+		return false
 	end
 
 	--Tone
@@ -140,7 +145,8 @@ function MusicData:load(filename)
 	io.close(file)
 --	print("load success.")
 	
-	end
+	return true
+end
 
 --------------------------------------
 function MusicData.new()

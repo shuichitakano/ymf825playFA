@@ -769,13 +769,13 @@ class App extends React.PureComponent {
         await sendCommand(str);
     }
 
-    async _playMMLFile(dir, file) {
+    async _playMMLFile(dir, file, idx) {
         if (file === "")
             return false;
 
         try {
             const path = dir + "/" + file;
-            let url = appURLBase + "/player.lua?" + path + "%20" + this.state.volume;
+            let url = appURLBase + "/player.lua?" + path + "%20" + this.state.volume + "%20" + idx;
             console.log("play url: " + url);
             if (!testMode) {
                 const response = await fetch(url, { method: "get" });
@@ -842,20 +842,24 @@ class App extends React.PureComponent {
         if (file === "")
             return;
 
-        //        jobQueue.add(async () => { await this._playMMLFile(dir, file) });
-        jobQueue.add(async () => {
-            canceled = false;
-            if (this.state.alwaysConvert || !hasbin) {
-                await setTime();
-                await this._convert(dir, file);
-                await asyncTest("convert wait", 100);
-            }
-            await this._playBinFile(dir, file);
-            if (testMode)
-                await asyncTest("playing...", 1000);
-            if (!canceled && idx >= 0)
-                this.playFileByIdx(++idx);
-        });
+        if (this.state.currentPlaylist) {
+            file = this.state.currentPlaylist + ".playlist";
+            dir = "/playlists";
+        }
+        jobQueue.add(async () => { await this._playMMLFile(dir, file, idx) });
+        // jobQueue.add(async () => {
+        //     canceled = false;
+        //     if (this.state.alwaysConvert || !hasbin) {
+        //         await setTime();
+        //         await this._convert(dir, file);
+        //         await asyncTest("convert wait", 100);
+        //     }
+        //     await this._playBinFile(dir, file);
+        //     if (testMode)
+        //         await asyncTest("playing...", 1000);
+        //     if (!canceled && idx >= 0)
+        //         this.playFileByIdx(++idx);
+        // });
     }
 
     playFileByIdx(idx) {

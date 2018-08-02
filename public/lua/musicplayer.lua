@@ -152,7 +152,7 @@ function MusicPlayer.new(data, device)
 			st.cmds = cmds
 			obj.playing = true
 		end
-		print(string.format("ch %d is %s", i, st.cmds and "enabled" or "disabled"))
+		-- print(string.format("ch %d is %s", i, st.cmds and "enabled" or "disabled"))
 		obj.chStates[i] = st
 	end
 	
