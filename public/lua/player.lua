@@ -15,6 +15,7 @@ require "musicdata_parser"
 require "musicplayer"
 require "ymf825"
 
+local input
 if arg[1] then
 	input = arg[1]
 end
@@ -24,11 +25,13 @@ if not input then
 	return;
 end
 
-playlist = {}
+local playlist = {}
 if input:sub(#input-8)==".playlist" then
 	for l in io.lines(input) do
 		print(l)
-		table.insert(playlist, l)
+		if l and l~="" then
+			table.insert(playlist, l)
+		end
 	end
 end
 
@@ -39,7 +42,7 @@ if arg[2] then
 	volume = tonumber(arg[2])
 end
 
-listIdx = 0
+local listIdx = 0
 if arg[3] then
 	listIdx = tonumber(arg[3])
 end
@@ -49,7 +52,7 @@ function updateSharedMemory()
 	writeSharedMemory(0, r)
 end
 
-exitReq = false
+local exitReq = false
 
 function main(input)
 
@@ -76,7 +79,7 @@ else
 	print("output: "..output)
 	data:save(output)	
 
-	MusicData.parseFile = nil
+--	MusicData.parseFile = nil
 	collectgarbage()
 end
 
@@ -131,8 +134,8 @@ end
 if next(playlist) then
 	-- playlist
 	while not exitReq do
-		f = playlist[listIdx + 1]
-		print(string.format("f[%d]:%s\n", listIdx, f))
+		local f = playlist[listIdx + 1]
+		print(string.format("f[%d/%d]:%s\n", listIdx+1, #playlist, f))
 		main(f)
 
 		listIdx = listIdx + 1

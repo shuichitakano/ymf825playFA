@@ -1082,11 +1082,18 @@ class App extends React.PureComponent {
             return;
 
         const list = await loadPlaylist(playlist + ".playlist");
-        const flist = list.map((l) => {
-            return {
-                name: l
-            };
-        });
+        let flist = [];
+        for (const l of list) {
+            if (l !== "") {
+                console.log("l=" + l);
+                flist.push({ name: l });
+            }
+        }
+        // const flist = list.map((l) => {
+        //     return {
+        //         name: l
+        //     };
+        // });
 
         this.setState({
             currentPlaylist: playlist,
