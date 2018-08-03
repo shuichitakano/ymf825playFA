@@ -22,6 +22,7 @@ import SdCardIcon from '@material-ui/icons/SdCard';
 import CloudIcon from '@material-ui/icons/Cloud';
 import SettingsIcon from '@material-ui/icons/Settings';
 import FolderOpenIcon from '@material-ui/icons/FolderOpen';
+import DeleteIcon from '@material-ui/icons/Delete';
 import ExpandLess from '@material-ui/icons/ExpandLess';
 import ExpandMore from '@material-ui/icons/ExpandMore';
 import Menu from '@material-ui/core/Menu';
@@ -38,8 +39,8 @@ var playerDir = "/lua";
 //var appURLBase = flashAirURLBase + playerDir;
 var flashAirURLBase = "";
 var appURLBase = playerDir;
-//var testMode = true;
-var testMode = false;
+var testMode = true;
+//var testMode = false;
 
 
 const drawerWidth = 240;
@@ -262,9 +263,21 @@ class FileEntry extends React.Component {
         this.props.onAddPlaylistMenu(this.props.name, e.currentTarget);
     };
 
+    handleDelete = () => {
+        this.props.onDeletePlaylistEntry(this.props.idx);
+    };
+
     render() {
         var _2ndAct;
-        if (this.props.listMode !== ListMode.Playlist) {
+        if (this.props.listMode === ListMode.Playlist) {
+            _2ndAct = (
+                <ListItemSecondaryAction>
+                    <IconButton onClick={this.handleDelete}>
+                        <DeleteIcon />
+                    </IconButton>
+                </ListItemSecondaryAction>
+            );
+        } else {
             _2ndAct = (
                 <ListItemSecondaryAction>
                     <IconButton onClick={this.handleAddPlaylistMenu}>
@@ -276,17 +289,18 @@ class FileEntry extends React.Component {
 
         return (
             <div>
-                <ListItem button
+                <Divider />
+                <MenuItem button
                     onClick={this.handleClick.bind(this)}
-                // selected={this.props.playing}
+                    selected={this.props.playing}
+                    style={{ height: 45 }}
                 >
-                    {this.props.playing && (<ListItemIcon><PlayArrow /></ListItemIcon>)}
+                    {/* {this.props.playing && (<ListItemIcon><PlayArrow /></ListItemIcon>)} */}
                     <ListItemText
                         primary={this.state.title}
                         secondary={this.props.info} />
                     {_2ndAct}
-                </ListItem>
-                <Divider />
+                </MenuItem>
             </div>);
     }
 };
@@ -299,11 +313,11 @@ class DirEntry extends React.Component {
     render() {
         return (
             <div>
+                <Divider inset />
                 <ListItem button onClick={this.handleClick.bind(this)} >
                     <Avatar> <Folder /> </Avatar>
                     <ListItemText primary={this.props.name} />
                 </ListItem>
-                <Divider inset />
             </div>);
     }
 };
@@ -329,12 +343,15 @@ class FileList extends React.Component {
                     info = d.name;
                     break;
             };
-            return (<FileEntry
-                dir={dir} name={d.name} info={info}
-                key={dir + "/" + d.name} idx={idx} playing={idx === this.props.playIdx}
-                onSelect={this.props.onSelectFile}
-                listMode={this.props.listMode}
-                onAddPlaylistMenu={this.props.onAddPlaylistMenu} />);
+            return (
+                <FileEntry
+                    dir={dir} name={d.name} info={info}
+                    key={dir + "/" + d.name} idx={idx} playing={idx === this.props.playIdx}
+                    onSelect={this.props.onSelectFile}
+                    listMode={this.props.listMode}
+                    onAddPlaylistMenu={this.props.onAddPlaylistMenu}
+                    onDeletePlaylistEntry={this.props.onDeletePlaylistEntry}
+                />);
         });
         const dirNodes = this.props.dirs.map((d) => {
             return (<DirEntry name={d.name} onSelect={this.props.onSelectDir}
@@ -530,10 +547,50 @@ class FormDialog extends React.Component {
     }
 };
 
+class AlertDialog extends React.Component {
+
+    handleClose = (result) => {
+        console.log("close" + result);
+        this.props.onClose(result);
+    };
+
+    render() {
+        return (
+            <Dialog
+                open={this.props.open}
+                onClose={() => { this.handleClose(false); }}
+                aria-labelledby="alert-dialog-title"
+                aria-describedby="alert-dialog-description"
+            >
+                <DialogTitle id="alert-dialog-title">{this.props.title}</DialogTitle>
+                <DialogContent>
+                    <DialogContentText id="alert-dialog-description"> {this.props.text}
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => { this.handleClose(false); }} color="primary">           Cancel </Button>
+                    <Button onClick={() => { this.handleClose(true); }} color="primary" autoFocus>   OK   </Button>
+                </DialogActions>
+            </Dialog>
+        );
+    }
+};
+
+
 function makePathString(dir, file) {
     if (dir !== "/")
         return dir + "/" + file;
     return file;
+}
+
+async function deleteFile(file) {
+    let url = "/upload.cgi?DEL=" + file;
+    console.log("delete url: " + url);
+    if (!testMode) {
+        const response = await fetch(url, { method: "GET" });
+        return response.status === 200;
+    }
+    return true;
 }
 
 async function saveText(dir, file, text) {
@@ -576,7 +633,7 @@ async function loadPlaylist(playlistFile) {
 
 async function savePlaylist(playlistFile, list) {
     const text = list.join("\n");
-    //    console.log("text=" + text);
+    console.log("text=" + text);
     await saveText("/playlists", playlistFile, text);
 }
 
@@ -590,8 +647,8 @@ async function addToPlaylist(playlistFile, file) {
 
 
 
-//class App extends React.Component {
-class App extends React.PureComponent {
+class App extends React.Component {
+    //class App extends React.PureComponent {
     constructor(props) {
         super(props);
         this.state = {
@@ -614,6 +671,10 @@ class App extends React.PureComponent {
             playlistToAddFile: null,
             listMode: ListMode.FlashAir,
             currentPlaylist: null,
+            deletePlaylistDialogOpen: false,
+            deletePlaylist: null,
+            deletePlaylistEntryDialogOpen: false,
+            deletePlaylistEntry: null,
         };
     }
 
@@ -738,7 +799,7 @@ class App extends React.PureComponent {
             return;
 
         try {
-            const path = dir + "/" + file;
+            const path = makePathString(dir, file);
             //            let url = appURLBase + "/read.lua?" + path;
             let url = flashAirURLBase + path;
             console.log("load text url: " + url);
@@ -887,7 +948,7 @@ class App extends React.PureComponent {
     }
 
     onSelectFile(file, hasbin, idx) {
-        const dir = this.state.listMode === ListMode.Playlist ? "" : this.state.currentDir;
+        const dir = this.state.listMode === ListMode.Playlist ? "/" : this.state.currentDir;
         this.setState({ currentFile: file });
         if (this.state.editMode) {
             this.loadText(dir, file);
@@ -921,8 +982,10 @@ class App extends React.PureComponent {
         // todo: 保存するか聞く
         const mode = !this.state.editMode ? true : false;
         this.setState({ editMode: mode });
-        if (mode)
-            this.loadText(this.state.currentDir, this.state.currentFile);
+        if (mode) {
+            const dir = this.state.listMode === ListMode.Playlist ? "/" : this.state.currentDir;
+            this.loadText(dir, this.state.currentFile);
+        }
     }
 
     onChangeCurrentFile(file) {
@@ -1089,19 +1152,68 @@ class App extends React.PureComponent {
                 flist.push({ name: l });
             }
         }
-        // const flist = list.map((l) => {
-        //     return {
-        //         name: l
-        //     };
-        // });
 
         this.setState({
             currentPlaylist: playlist,
             listMode: ListMode.Playlist,
             fileList: flist,
             dirList: [],
+            currentPlayIdx: -1,
             drawerOpen: false,
         });
+    };
+
+    handleDeletePlaylistEntry = (idx) => {
+        this.setState({
+            deletePlaylistEntry: idx,
+            deletePlaylistEntryDialogOpen: true
+        });
+    }
+
+    handleDeletePlaylistEntryMain = (r) => {
+        const idx = this.state.deletePlaylistEntry;
+        this.setState({
+            deletePlaylistEntry: null,
+            deletePlaylistEntryDialogOpen: false
+        });
+        if (!r) {
+            return;
+        }
+
+        console.log("delete entry " + idx);
+        let flist = this.state.fileList;
+        flist.splice(idx, 1);
+
+        let list = [];
+        for (const e of flist)
+            list.push(e.name);
+        savePlaylist(this.state.currentPlaylist + ".playlist", list);
+
+        this.setState({ fileList: flist });
+    };
+
+    handleDeletePlaylist = (playlist) => {
+        this.setState({
+            deletePlaylist: playlist,
+            deletePlaylistDialogOpen: true
+        });
+    }
+
+    handleDeletePlaylistMain = async (r) => {
+        const playlist = this.state.deletePlaylist;
+        this.setState({
+            deletePlaylist: null,
+            deletePlaylistDialogOpen: false
+        });
+        if (!r) {
+            return;
+        }
+        console.log("delete playlist " + playlist);
+        if (playlist === this.state.currentPlaylist) {
+            this.setState({ currentPlaylist: null, fileList: [] });
+        }
+        await deleteFile("/playlists/" + playlist + ".playlist");
+        this.updatePlaylistList();
     };
 
     static propTypes = {
@@ -1121,6 +1233,13 @@ class App extends React.PureComponent {
                     onClick={() => { this.setCurrentPlaylist(l) }}
                 >
                     <ListItemText> {l} </ListItemText>
+
+                    <ListItemSecondaryAction>
+                        <IconButton onClick={() => { this.handleDeletePlaylist(l); }}>
+                            <DeleteIcon />
+                        </IconButton>
+                    </ListItemSecondaryAction>
+
                 </MenuItem>
             );
         });
@@ -1269,6 +1388,18 @@ class App extends React.PureComponent {
                     text="Please enter a name for the new playlist."
                     label="Name"
                 />
+                <AlertDialog
+                    open={this.state.deletePlaylistDialogOpen}
+                    title="Confirmation"
+                    text={"Delete the playlist '" + this.state.deletePlaylist + "'. Are you sure?"}
+                    onClose={this.handleDeletePlaylistMain}
+                />
+                <AlertDialog
+                    open={this.state.deletePlaylistEntryDialogOpen}
+                    title="Confirmation"
+                    text={"Delete the entry. Are you sure?"}
+                    onClose={this.handleDeletePlaylistEntryMain}
+                />
                 <Menu
                     id="add-playlist-menu"
                     anchorEl={this.state.addPlaylistMenuAnchor}
@@ -1304,6 +1435,7 @@ class App extends React.PureComponent {
                         onSelectFile={this.onSelectFile.bind(this)}
                         onSelectDir={this.onSelectDir.bind(this)}
                         onAddPlaylistMenu={this.handleAddPlaylistMenu}
+                        onDeletePlaylistEntry={this.handleDeletePlaylistEntry}
                         listMode={this.state.listMode}
                         currentPlaylist={this.state.currentPlaylist}
                     />
