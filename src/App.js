@@ -39,8 +39,8 @@ var playerDir = "/lua";
 //var appURLBase = flashAirURLBase + playerDir;
 var flashAirURLBase = "";
 var appURLBase = playerDir;
-var testMode = true;
-//var testMode = false;
+//var testMode = true;
+var testMode = false;
 
 
 const drawerWidth = 240;
@@ -1280,7 +1280,7 @@ class App extends React.Component {
                             primary="FlashAir"
                         />
                     </MenuItem>
-                    <MenuItem button
+                    {/* <MenuItem button
                         selected={this.state.listMode === ListMode.Cloud}
                         onClick={() => { this.changeListMode(ListMode.Cloud); }}
                     >
@@ -1290,7 +1290,7 @@ class App extends React.Component {
                         <ListItemText
                             primary="Cloud?"
                         />
-                    </MenuItem>
+                    </MenuItem> */}
                     <MenuItem button
                         selected={this.state.listMode === ListMode.Playlist}
                         onClick={this.handlePlaylistClick}
